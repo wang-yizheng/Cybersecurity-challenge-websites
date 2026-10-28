@@ -3,8 +3,9 @@ import { questions } from './data/questions';
 import StudyMode from './components/StudyMode';
 import QuizMode from './components/QuizMode';
 import WrongBook from './components/WrongBook';
+import SweepMode from './components/SweepMode';
 
-type Mode = 'home' | 'study' | 'quiz' | 'wrong';
+type Mode = 'home' | 'study' | 'quiz' | 'wrong' | 'sweep';
 
 interface WrongRecord {
   questionId: number;
@@ -112,6 +113,16 @@ function App() {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setMode('sweep')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                mode === 'sweep'
+                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              扫除
+            </button>
           </nav>
         </div>
       </header>
@@ -125,6 +136,7 @@ function App() {
             onStudy={() => { setCurrentIndex(0); setMode('study'); }}
             onQuiz={() => { setCurrentIndex(0); setMode('quiz'); }}
             onWrong={() => setMode('wrong')}
+            onSweep={() => setMode('sweep')}
           />
         )}
         {mode === 'study' && (
@@ -154,6 +166,14 @@ function App() {
             onStudyWrong={(index: number) => { setCurrentIndex(index); setMode('study'); }}
           />
         )}
+        {mode === 'sweep' && (
+          <SweepMode
+            questions={questions}
+            wrongRecords={wrongRecords}
+            onRemove={removeWrongRecord}
+            onBack={() => setMode('home')}
+          />
+        )}
       </main>
     </div>
   );
@@ -164,13 +184,15 @@ function HomePage({
   wrongCount,
   onStudy,
   onQuiz,
-  onWrong
+  onWrong,
+  onSweep
 }: {
   totalQuestions: number;
   wrongCount: number;
   onStudy: () => void;
   onQuiz: () => void;
   onWrong: () => void;
+  onSweep: () => void;
 }) {
   return (
     <div className="py-8">
@@ -183,7 +205,7 @@ function HomePage({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
         {/* 背题模式 */}
         <button
           onClick={onStudy}
@@ -233,6 +255,25 @@ function HomePage({
             <h3 className="text-xl font-bold text-white mb-2">错题本</h3>
             <p className="text-rose-100 text-sm">
               {wrongCount > 0 ? `已收录 ${wrongCount} 道错题` : '暂无错题，继续加油！'}
+            </p>
+          </div>
+        </button>
+
+        {/* 错题扫除模式 */}
+        <button
+          onClick={onSweep}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-violet-700 p-6 text-left shadow-xl shadow-purple-500/20 hover:shadow-purple-500/40 transition-all hover:scale-105"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative">
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">错题扫除</h3>
+            <p className="text-purple-100 text-sm">
+              {wrongCount > 0 ? `连续答对3次清除错题` : '暂无错题可扫除'}
             </p>
           </div>
         </button>

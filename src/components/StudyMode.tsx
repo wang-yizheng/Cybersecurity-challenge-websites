@@ -65,9 +65,20 @@ export default function StudyMode({ questions, currentIndex, setCurrentIndex, on
             <span className="flex-shrink-0 w-8 h-8 bg-blue-500/20 text-blue-400 rounded-lg flex items-center justify-center text-sm font-bold">
               {question.id}
             </span>
-            <h2 className="text-lg font-medium text-white leading-relaxed">
-              {question.question}
-            </h2>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  question.answers.length > 1
+                    ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                    : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                }`}>
+                  {question.answers.length > 1 ? '多选题' : '单选题'}
+                </span>
+              </div>
+              <h2 className="text-lg font-medium text-white leading-relaxed">
+                {question.question}
+              </h2>
+            </div>
           </div>
 
           {/* Options */}
