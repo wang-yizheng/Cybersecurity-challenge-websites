@@ -133,6 +133,8 @@ function App() {
           <HomePage
             totalQuestions={questions.length}
             wrongCount={wrongRecords.length}
+            singleCount={questions.filter(q => q.answers.length === 1).length}
+            multiCount={questions.filter(q => q.answers.length > 1).length}
             onStudy={() => { setCurrentIndex(0); setMode('study'); }}
             onQuiz={() => { setCurrentIndex(0); setMode('quiz'); }}
             onWrong={() => setMode('wrong')}
@@ -182,6 +184,8 @@ function App() {
 function HomePage({
   totalQuestions,
   wrongCount,
+  singleCount,
+  multiCount,
   onStudy,
   onQuiz,
   onWrong,
@@ -189,6 +193,8 @@ function HomePage({
 }: {
   totalQuestions: number;
   wrongCount: number;
+  singleCount: number;
+  multiCount: number;
   onStudy: () => void;
   onQuiz: () => void;
   onWrong: () => void;
@@ -203,6 +209,14 @@ function HomePage({
         <p className="text-slate-400 text-lg">
           共 {totalQuestions} 道题目 · 题目 · 答案 · 解析
         </p>
+        <div className="flex items-center justify-center gap-4 mt-3">
+          <span className="text-xs px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20">
+            单选题 {singleCount} 道
+          </span>
+          <span className="text-xs px-3 py-1 rounded-full bg-orange-500/10 text-orange-300 border border-orange-500/20">
+            多选题 {multiCount} 道
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
