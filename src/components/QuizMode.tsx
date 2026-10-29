@@ -24,8 +24,21 @@ export default function QuizMode({ questions, currentIndex, setCurrentIndex, onB
   const [isCorrect, setIsCorrect] = useState(false);
   const [wrongRecorded, setWrongRecorded] = useState(false);
   const [wrongQuestionIds, setWrongQuestionIds] = useState<Set<number>>(new Set());
+  const [currentPage, setCurrentPage] = useState(0);
 
   const question = questions[currentIndex];
+  
+  // 分页配置：每页16行，每行10个题目，共5页
+  const ROWS_PER_PAGE = 16;
+  const COLS_PER_ROW = 10;
+  const QUESTIONS_PER_PAGE = ROWS_PER_PAGE * COLS_PER_ROW; // 160
+  const TOTAL_PAGES = 5;
+  
+  const goToPage = (page: number) => {
+    if (page >= 0 && page < TOTAL_PAGES) {
+      setCurrentPage(page);
+    }
+  };
   
   // 检查当前题目是否已经回答过
   const existingRecord = quizRecords.find(r => r.questionId === question.id);
@@ -293,34 +306,82 @@ export default function QuizMode({ questions, currentIndex, setCurrentIndex, onB
       </div>
 
       {/* Question Navigator Sidebar */}
-      <div className="lg:w-64 bg-slate-800/40 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-4 h-fit lg:sticky lg:top-20">
-        <h3 className="text-white font-medium text-sm mb-3">题目导航</h3>
-        <div className="grid grid-cols-6 lg:grid-cols-5 gap-2">
-          {questions.map((q, idx) => {
-            const record = quizRecords.find(r => r.questionId === q.id);
-            const isAnswered = !!record;
-            const isCurrentQuestion = idx === currentIndex;
+      <div className="lg:w-80 bg-slate-800/40 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-4 h-fit lg:sticky lg:top-20">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-white font-medium text-sm">题目导航</h3>
+          <span className="text-xs text-slate-400">第 {currentPage + 1} / {TOTAL_PAGES} 页</span>
+        </div>
+        
+        {/* 题目网格 */}
+        <div className="space-y-2 mb-4">
+          {Array.from({ length: ROWS_PER_PAGE }).map((_, rowIndex) => {
+            const startIndex = currentPage * QUESTIONS_PER_PAGE + rowIndex * COLS_PER_ROW;
+            const endIndex = Math.min(startIndex + COLS_PER_ROW, questions.length);
+            
+            if (startIndex >= questions.length) return null;
             
             return (
-              <button
-                key={idx}
-                onClick={() => setCurrentIndex(idx)}
-                className={`w-8 h-8 rounded-lg text-xs font-medium transition-all relative ${
-                  isCurrentQuestion
-                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
-                    : isAnswered
-                    ? record?.isCorrect
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                      : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                    : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50 hover:text-white'
-                }`}
-              >
-                {idx + 1}
-              </button>
+              <div key={rowIndex} className="flex gap-1">
+                {Array.from({ length: COLS_PER_ROW }).map((_, colIndex) => {
+                  const questionIndex = startIndex + colIndex;
+                  if (questionIndex >= questions.length) {
+                    return <div key={colIndex} className="w-8 h-8" />;
+                  }
+                  
+                  const q = questions[questionIndex];
+                  const record = quizRecords.find(r => r.questionId === q.id);
+                  const isAnswered = !!record;
+                  const isCurrentQuestion = questionIndex === currentIndex;
+                  
+                  return (
+                    <button
+                      key={colIndex}
+                      onClick={() => setCurrentIndex(questionIndex)}
+                      className={`w-8 h-8 rounded-lg text-xs font-medium transition-all relative ${
+                        isCurrentQuestion
+                          ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+                          : isAnswered
+                          ? record?.isCorrect
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50 hover:text-white'
+                      }`}
+                    >
+                      {questionIndex + 1}
+                    </button>
+                  );
+                })}
+              </div>
             );
           })}
         </div>
-        <div className="mt-4 pt-4 border-t border-slate-700/50">
+        
+        {/* 分页按钮 */}
+        <div className="flex items-center justify-between pt-3 border-t border-slate-700/50 mb-3">
+          <button
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={currentPage === 0}
+            className="flex items-center gap-1 px-3 py-1.5 bg-slate-700/50 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            上一页
+          </button>
+          <button
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={currentPage === TOTAL_PAGES - 1}
+            className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-all"
+          >
+            下一页
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+        
+        {/* 图例 */}
+        <div className="pt-3 border-t border-slate-700/50">
           <div className="flex items-center gap-2 text-xs text-slate-400">
             <div className="w-3 h-3 rounded bg-emerald-500" />
             <span>当前题目</span>
