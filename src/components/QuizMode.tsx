@@ -1,15 +1,24 @@
 import { useState, useEffect } from 'react';
 import { Question } from '../data/questions';
 
+interface QuizRecord {
+  questionId: number;
+  userAnswers: string[];
+  isCorrect: boolean;
+  timestamp: number;
+}
+
 interface Props {
   questions: Question[];
   currentIndex: number;
   setCurrentIndex: (index: number) => void;
   onBack: () => void;
   onWrong: (questionId: number) => void;
+  quizRecords: QuizRecord[];
+  onSaveRecord: (questionId: number, userAnswers: string[], isCorrect: boolean) => void;
 }
 
-export default function QuizMode({ questions, currentIndex, setCurrentIndex, onBack, onWrong }: Props) {
+export default function QuizMode({ questions, currentIndex, setCurrentIndex, onBack, onWrong, quizRecords, onSaveRecord }: Props) {
   const [selectedAnswers, setSelectedAnswers] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
@@ -17,13 +26,25 @@ export default function QuizMode({ questions, currentIndex, setCurrentIndex, onB
   const [wrongQuestionIds, setWrongQuestionIds] = useState<Set<number>>(new Set());
 
   const question = questions[currentIndex];
+  
+  // 检查当前题目是否已经回答过
+  const existingRecord = quizRecords.find(r => r.questionId === question.id);
+  const hasAnswered = !!existingRecord;
 
   useEffect(() => {
-    setSelectedAnswers([]);
-    setSubmitted(false);
-    setIsCorrect(false);
-    setWrongRecorded(false);
-  }, [currentIndex]);
+    // 如果题目已经回答过，恢复之前的答案和状态
+    if (existingRecord) {
+      setSelectedAnswers(existingRecord.userAnswers);
+      setSubmitted(true);
+      setIsCorrect(existingRecord.isCorrect);
+      setWrongRecorded(!existingRecord.isCorrect);
+    } else {
+      setSelectedAnswers([]);
+      setSubmitted(false);
+      setIsCorrect(false);
+      setWrongRecorded(false);
+    }
+  }, [currentIndex, existingRecord]);
 
   const toggleAnswer = (letter: string) => {
     if (submitted) return;
@@ -39,6 +60,10 @@ export default function QuizMode({ questions, currentIndex, setCurrentIndex, onB
       selectedAnswers.length === question.answers.length &&
       selectedAnswers.every(a => question.answers.includes(a));
     setIsCorrect(correct);
+    
+    // 保存答题记录
+    onSaveRecord(question.id, selectedAnswers, correct);
+    
     if (!correct && !wrongRecorded) {
       onWrong(question.id);
       setWrongQuestionIds(prev => new Set(prev).add(question.id));
@@ -92,7 +117,14 @@ export default function QuizMode({ questions, currentIndex, setCurrentIndex, onB
             <span className="text-sm text-slate-400">
               第 {currentIndex + 1} / {questions.length} 题
             </span>
-            <span className="text-sm text-emerald-400">刷题模式</span>
+            <div className="flex items-center gap-2">
+              {hasAnswered && (
+                <span className="text-xs px-2 py-1 bg-cyan-500/20 text-cyan-300 rounded-full">
+                  已作答
+                </span>
+              )}
+              <span className="text-sm text-emerald-400">刷题模式</span>
+            </div>
           </div>
           <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
             <div
@@ -264,21 +296,29 @@ export default function QuizMode({ questions, currentIndex, setCurrentIndex, onB
       <div className="lg:w-64 bg-slate-800/40 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-4 h-fit lg:sticky lg:top-20">
         <h3 className="text-white font-medium text-sm mb-3">题目导航</h3>
         <div className="grid grid-cols-6 lg:grid-cols-5 gap-2">
-          {questions.map((q, idx) => (
-            <button
-              key={idx}
-              onClick={() => setCurrentIndex(idx)}
-              className={`w-8 h-8 rounded-lg text-xs font-medium transition-all ${
-                idx === currentIndex
-                  ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
-                  : wrongQuestionIds.has(q.id)
-                  ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                  : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50 hover:text-white'
-              }`}
-            >
-              {idx + 1}
-            </button>
-          ))}
+          {questions.map((q, idx) => {
+            const record = quizRecords.find(r => r.questionId === q.id);
+            const isAnswered = !!record;
+            const isCurrentQuestion = idx === currentIndex;
+            
+            return (
+              <button
+                key={idx}
+                onClick={() => setCurrentIndex(idx)}
+                className={`w-8 h-8 rounded-lg text-xs font-medium transition-all relative ${
+                  isCurrentQuestion
+                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+                    : isAnswered
+                    ? record?.isCorrect
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50 hover:text-white'
+                }`}
+              >
+                {idx + 1}
+              </button>
+            );
+          })}
         </div>
         <div className="mt-4 pt-4 border-t border-slate-700/50">
           <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -286,8 +326,16 @@ export default function QuizMode({ questions, currentIndex, setCurrentIndex, onB
             <span>当前题目</span>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
-            <div className="w-3 h-3 rounded bg-red-500/30 border border-red-500/30" />
+            <div className="w-3 h-3 rounded bg-emerald-500/20 border border-emerald-500/30" />
+            <span>答对题目</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
+            <div className="w-3 h-3 rounded bg-red-500/20 border border-red-500/30" />
             <span>答错题目</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
+            <div className="w-3 h-3 rounded bg-slate-700/50" />
+            <span>未答题目</span>
           </div>
         </div>
       </div>

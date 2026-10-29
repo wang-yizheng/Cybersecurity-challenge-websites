@@ -12,15 +12,27 @@ interface WrongRecord {
   count: number;
 }
 
+interface QuizRecord {
+  questionId: number;
+  userAnswers: string[];
+  isCorrect: boolean;
+  timestamp: number;
+}
+
 function App() {
   const [mode, setMode] = useState<Mode>('home');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [wrongRecords, setWrongRecords] = useState<WrongRecord[]>([]);
+  const [quizRecords, setQuizRecords] = useState<QuizRecord[]>([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('wrongRecords');
-    if (saved) {
-      setWrongRecords(JSON.parse(saved));
+    const savedWrong = localStorage.getItem('wrongRecords');
+    if (savedWrong) {
+      setWrongRecords(JSON.parse(savedWrong));
+    }
+    const savedQuiz = localStorage.getItem('quizRecords');
+    if (savedQuiz) {
+      setQuizRecords(JSON.parse(savedQuiz));
     }
   }, []);
 
@@ -49,6 +61,28 @@ function App() {
 
   const clearWrongRecords = () => {
     saveWrongRecords([]);
+  };
+
+  const saveQuizRecords = (records: QuizRecord[]) => {
+    setQuizRecords(records);
+    localStorage.setItem('quizRecords', JSON.stringify(records));
+  };
+
+  const addQuizRecord = (questionId: number, userAnswers: string[], isCorrect: boolean) => {
+    const existingIndex = quizRecords.findIndex(r => r.questionId === questionId);
+    let newRecords: QuizRecord[];
+    if (existingIndex >= 0) {
+      newRecords = quizRecords.map((r, idx) =>
+        idx === existingIndex ? { ...r, userAnswers, isCorrect, timestamp: Date.now() } : r
+      );
+    } else {
+      newRecords = [...quizRecords, { questionId, userAnswers, isCorrect, timestamp: Date.now() }];
+    }
+    saveQuizRecords(newRecords);
+  };
+
+  const resetQuizProgress = () => {
+    saveQuizRecords([]);
   };
 
   const wrongQuestionIds = wrongRecords.map(r => r.questionId);
@@ -135,10 +169,19 @@ function App() {
             wrongCount={wrongRecords.length}
             singleCount={questions.filter(q => q.answers.length === 1).length}
             multiCount={questions.filter(q => q.answers.length > 1).length}
+            totalAnswered={quizRecords.length}
+            correctCount={quizRecords.filter(r => r.isCorrect).length}
             onStudy={() => { setCurrentIndex(0); setMode('study'); }}
-            onQuiz={() => { setCurrentIndex(0); setMode('quiz'); }}
+            onQuiz={() => {
+              // 找到第一个未回答的题目
+              const answeredIds = new Set(quizRecords.map(r => r.questionId));
+              const firstUnanswered = questions.findIndex(q => !answeredIds.has(q.id));
+              setCurrentIndex(firstUnanswered >= 0 ? firstUnanswered : 0);
+              setMode('quiz');
+            }}
             onWrong={() => setMode('wrong')}
             onSweep={() => setMode('sweep')}
+            onResetQuiz={resetQuizProgress}
           />
         )}
         {mode === 'study' && (
@@ -156,6 +199,8 @@ function App() {
             setCurrentIndex={setCurrentIndex}
             onBack={() => setMode('home')}
             onWrong={addWrongRecord}
+            quizRecords={quizRecords}
+            onSaveRecord={addQuizRecord}
           />
         )}
         {mode === 'wrong' && (
@@ -186,19 +231,25 @@ function HomePage({
   wrongCount,
   singleCount,
   multiCount,
+  totalAnswered,
+  correctCount,
   onStudy,
   onQuiz,
   onWrong,
-  onSweep
+  onSweep,
+  onResetQuiz
 }: {
   totalQuestions: number;
   wrongCount: number;
   singleCount: number;
   multiCount: number;
+  totalAnswered: number;
+  correctCount: number;
   onStudy: () => void;
   onQuiz: () => void;
   onWrong: () => void;
   onSweep: () => void;
+  onResetQuiz: () => void;
 }) {
   return (
     <div className="py-8">
@@ -302,20 +353,59 @@ function HomePage({
             </svg>
             学习统计
           </h3>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-400">{totalQuestions}</div>
               <div className="text-sm text-slate-400">总题数</div>
             </div>
             <div className="text-center">
+              <div className="text-2xl font-bold text-cyan-400">{totalAnswered}</div>
+              <div className="text-sm text-slate-400">已答题</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-emerald-400">{correctCount}</div>
+              <div className="text-sm text-slate-400">答对数</div>
+            </div>
+            <div className="text-center">
               <div className="text-2xl font-bold text-rose-400">{wrongCount}</div>
               <div className="text-sm text-slate-400">错题数</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-emerald-400">{totalQuestions - wrongCount}</div>
-              <div className="text-sm text-slate-400">已掌握</div>
-            </div>
           </div>
+          
+          {/* 刷题进度条 */}
+          {totalAnswered > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-700/50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-slate-400">刷题进度</span>
+                <span className="text-sm text-cyan-400">{Math.round((totalAnswered / totalQuestions) * 100)}%</span>
+              </div>
+              <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-300"
+                  style={{ width: `${(totalAnswered / totalQuestions) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 重置刷题进度按钮 */}
+          {totalAnswered > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-700/50">
+              <button
+                onClick={() => {
+                  if (window.confirm('确定要重置刷题进度吗？所有答题记录将被清除。')) {
+                    onResetQuiz();
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-300 rounded-xl transition-all text-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                重置刷题进度
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
